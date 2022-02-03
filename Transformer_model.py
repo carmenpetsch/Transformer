@@ -404,7 +404,80 @@ class Transformer(tf.keras.Model):
 
     return look_ahead_mask
 
+# %%Bayesian hyperparameter optimization
 
+# 1. Define non hyperparameters
+d_model=Enc_input_501_pos.shape[2]
+target_vocab_size=1 
+dropout_rate=0
+
+# 2. Make hyperparameter space
+head_options_initial=[1,2,4] # Only options for time1 time 2, flow and age, because just 4 dimensions
+head_options_total=[1,2,3,6,9,18]
+
+space={ 
+       'num_heads':hp.choice('num_heads',head_options_initial),
+       'num_layers': scope.int(hp.quniform('n_layers_enc',1,10,1)), #quniform returns float however int required  therefore scope.int (returns for example 4.0)
+       'dff': scope.int(hp.quniform('dimension_enc',10,400,10)),
+       'learning_rate': hp.choice('learning_rate',[0.00001,0.0001,0.001, 0.01]),
+       'batch_size':hp.choice('batch_size',[16,32,64]),
+       }
+
+# 3. Build model
+def build_transformer_opt(params):
+    Enc_input=Enc_input_501_pos_shuffled
+    Dec_input=Dec_input_501_pos_shuffled
+    Dec_output=Dec_output_501_shuffled
+    
+    d_model_def=d_model
+    target_vocab_size_def=target_vocab_size
+    dropout_rate_def=dropout_rate
+    
+    transformer_model=Transformer(
+        num_layers=params['num_layers'],
+        d_model=d_model_def,
+        num_heads=params['num_heads'],  
+        dff=params['dff'],
+        target_vocab_size=target_vocab_size_def,
+        rate=dropout_rate_def)
+    
+    Optimizer=keras.optimizers.Adam(lr=params['learning_rate'])
+    loss_part1=['mse']
+    loss_part2=[None]*(2*params['num_layers'])
+    loss_part1.extend(loss_part2)
+    print(loss_part1)
+    transformer_model.compile(optimizer=Optimizer, loss=loss_part1)#,None,None,None,None,None,None])
+    
+    es = keras.callbacks.EarlyStopping(monitor='val_loss',mode='min',verbose=1,patience=15)    
+
+    result=transformer_model.fit([Enc_input,Dec_input],Dec_output,epochs=40,validation_split=0.2,batch_size=params['batch_size'],callbacks=[es])
+
+    validation_loss = np.amin(result.history['val_loss']) 
+    print('Best validation loss of epoch:', validation_loss)
+    
+    return {'loss': validation_loss,   
+            'status': STATUS_OK, 
+            'model': transformer_model, 
+            'params': params}
+
+# 4. Pass the model to the optimization
+trials =Trials() #saves everything
+best=fmin(build_transformer_opt,
+          space,
+          algo=tpe.suggest,
+          max_evals=100, # maybe 50 or so, just small to try now
+          trials=trials
+          )
+
+# 5. evaluate
+best_model = trials.results[np.argmin([r['loss'] for r in 
+    trials.results])]['model']
+best_params = trials.results[np.argmin([r['loss'] for r in 
+    trials.results])]['params']
+worst_model = trials.results[np.argmax([r['loss'] for r in 
+    trials.results])]['model']
+worst_params = trials.results[np.argmax([r['loss'] for r in 
+    trials.results])]['params']
 
 # %% Transformer implementation 
 #hyperparameters 
