@@ -434,7 +434,7 @@ Optimizer=keras.optimizers.Adam(lr=learning_rate)
 # Train
 #Required to set None to ensure that only trained on output flow and not on attentionweights, 2*number of layers
 transformer_optie2.compile(optimizer=Optimizer, loss=["mse",None,None,None,None,None,None,None,None])
-result=transformer_optie2.fit([Enc_input_501_pos_shuffled_train,Dec_input_501_pos_shuffled_train],Dec_output_501_shuffled_train,epochs=120,batch_size=batch_size,validation_data=([Enc_input_501_pos_shuffled_val,Dec_input_501_pos_shuffled_val],Dec_output_501_shuffled_val))
+result=transformer_optie2.fit([Enc_input_501_pos_shuffled,Dec_input_501_pos_shuffled],Dec_output_501_shuffled,epochs=120,batch_size=batch_size,validation_split=0.2)
 
 transformer_optie2.summary()
 
@@ -447,4 +447,69 @@ plt.xlabel('epochs')
 plt.ylabel('MSE [$veh^2/h^2$]')
 plt.title("Learning curves for location 531 ")
 plt.ylim((0,0.3))
+
+#%% Predict
+class Predictor(tf.Module):
+  def __init__(self, transformer):
+    self.transformer = transformer
+
+  def __call__(self, first_flow ,known_input,start_seq,n_pred,pred_horizon,Encoder_input): # first flow=y(t), known_input=x(t+1)--x(t+24)
+    
+    print('known input',known_input.shape)
+    # from here loop, so start with the first, different steps due to other dimensions
+    known_input_first=known_input[:,0:1,:]            # extract the frist known inputs, 0:1 such that stays 3D   
+    print('known_input_first',known_input_first.shape)
+    # first decoder input to predict y(t+1), based on y(t) and x(t+1)
+    Dec_input=tf.concat((first_flow,known_input_first),axis=2) # concatenate first flow and inputs to dimensie 1,1,4 
+    print('Dec_input',Dec_input.shape)
+    for i in range(pred_horizon-1):
+        print(i)
+        # make prediction y(t+1)
+        predicted,_,_,_=self.transformer ([Encoder_input[start_seq:(start_seq+n_pred),:,:], Dec_input], training=False) # dimensie 1,1,1
+        
+        # concatenate first flow with predicted
+        known_flow=tf.concat((first_flow,predicted),axis=1) # concatenate first flow and inputs to dimensie 1,1,4
+        # extract known input information x(t=1) and x(t+2)
+        known_input_part=known_input[:,0:(i+2),:]   
+        
+        # Concatenate known input and flows
+        Dec_input= tf.concat((known_flow,known_input_part),axis=2) 
+    
+    # final prediction
+    predicted_final,attention_weights,attention_weight_enc,enc_output=self.transformer ([Encoder_input[start_seq:(start_seq+n_pred),:,:], Dec_input], training=False) # dimensie 1,1,1
+    # I can extract last attention weights here aswell, is nice to see
+
+
+    return predicted_final,attention_weights,attention_weight_enc,enc_output
+
+
+#%% Make prediction for train, val, and test set
+# 1. Predict on entire train and validation set
+# define predictor from transformer test 
+predictor_train=Predictor(transformer_optie2)
+predictor_test=Predictor(transformer_optie2)
+
+# Set up inputs for the prediction
+start_seq=0                                             # which index to start prediction sequence
+n_pred_train=Enc_input_501_pos_shuffled.shape[0]        # numer of predictions
+n_pred_test=Enc_input_501_pos_test.shape[0]             # numer of predictions
+
+
+first_flow=Enc_input_501_pos_shuffled[start_seq:(start_seq+n_pred_train),-1,0]          # we need the first flow for the first prediction y(t+1)
+first_flow=tf.reshape(first_flow,(n_pred_train,1,1))                                    # reshape to three dimensional tensor
+known_input=Dec_input_501_pos_shuffled[start_seq:(start_seq+n_pred_train),:,1:]         # the entire known input, so without the flow
+
+# Make the prediction train and validation set
+y_pred,weights,weights_enc,enc_output=predictor_train(first_flow,known_input,start_seq,n_pred_train,pred_horizon,Enc_input_501_pos_shuffled)
+dimension_train=int(y_pred.shape[0]*0.8)
+y_pred_train=y_pred[0:dimension_train,:]
+y_pred_val=y_pred[dimension_train:,:]
+
+first_flow=Enc_input_501_pos_test[start_seq:(start_seq+n_pred_test),-1,0]      # we need the first flow for the first prediction y(t+1)
+first_flow=tf.reshape(first_flow,(n_pred_test,1,1))       # reshape to three dimensional tensor
+known_input=Dec_input_501_pos_test[start_seq:(start_seq+n_pred_test),:,1:]     # the entire known input, so without the flow
+
+# Make the prediction for the test set
+y_pred_test,weights_test,weights_enc_test,enc_output_test=predictor_test(first_flow,known_input,start_seq,n_pred_test,pred_horizon,Enc_input_501_pos_test)
+
 
