@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Feb  3 12:28:23 2022
-
-@author: z0049unj
-"""
-
 # This file makes the MLP
 
 # %% Import packages
@@ -39,9 +32,9 @@ from sklearn.model_selection import cross_val_score #for cross validation
 from tensorflow import keras
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
+
 # %% Define colors
 color_tu=(0, 166/255, 214/255)
-#plt.rcParams["font.family"] = "sans-serif"
 wit=(1,1,1)
 b1=(1/255, 61/255, 168/255)
 b2=(41/255, 79/255, 178/255)
@@ -75,7 +68,6 @@ siemens_blauw=(1/255,8/255,46/255)
 colors_2=[b3,b7]
 colors_3=[b3,b7,o3]
 colors_4=[b3,b7,o3,o7]
-# colors 5 en 6 nodig voor calender plots, voeg wit toe om daarmee de dagen te doen die niet bestaan
 colors_5=[wit,o1,o7,b1,b7]
 colors_6=[wit,b1,b7,o1,o4,o7]
 colors_7=[b1,b3,b7,b10,o1,o3,o7]
@@ -89,35 +81,26 @@ cmap_blue_orange_7 = LinearSegmentedColormap.from_list("", colors_7)
 cmap_blue_orange_9 = LinearSegmentedColormap.from_list("", [wit,b1,b3,b7,b10,o1,o3,o7,o10])
 
 #%% Make final data set
-original_index_501=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Simple models/Original_index_before_preprocess/original_index_501.pkl")
-#original_index_501=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Simple models/Original_index_before_preprocess/original_index_531.pkl")
-
+original_index_501=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Simple models/Original_index_before_preprocess/original_index_501.pkl")
 
 def import_data_location(location):
-    loc=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Simple models/Location_observation_data/loc_{}.pkl".format(location))
-    X_train=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Final_Feature_Set/X_{}_train_final.pkl".format(location))
-    X_test=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Final_Feature_Set/X_{}_test_final.pkl".format(location))
-    y_train=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Final_Feature_Set/y_{}_train.pkl".format(location))
-    y_test=pd.read_pickle("C:/UserData/z0049unj/Documents/Afstuderen/python/Final_Feature_Set/y_{}_test.pkl".format(location))
+    loc=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Simple models/Location_observation_data/loc_{}.pkl".format(location))
+    X_train=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Final_Feature_Set/X_{}_train_final.pkl".format(location))
+    X_test=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Final_Feature_Set/X_{}_test_final.pkl".format(location))
+    y_train=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Final_Feature_Set/y_{}_train.pkl".format(location))
+    y_test=pd.read_pickle("C:/UserData/Documents/Afstuderen/python/Final_Feature_Set/y_{}_test.pkl".format(location))
     #info about y to scale back output and train on standardized set
     y_train_stand_values=stats.zscore(y_train.values).reshape(y_train.shape[0],)
     y_train_norm=(y_train-y_train.min())/(y_train.max()-y_train.min()) #min max normalization
     y_train_stand=pd.DataFrame({'waarnemingen_intensiteit':y_train_stand_values})
-
-    
-    
     y_train_mean=np.mean(y_train.values)
     y_train_std=np.std(y_train.values)
-    
     y_test_stand=(y_test-y_train_mean)/y_train_std
 
-    
     return loc,X_train,X_test,y_train,y_test,y_train_stand,y_test_stand,y_train_norm,y_train_mean,y_train_std
 
 #Set up of the final feature set
-#just imported for location 501 now, else just call function again
 [loc_501,X_501_train,X_501_test,y_501_train,y_501_test,y_501_train_stand,y_501_test_stand,y_501_train_norm,y_501_mean,y_501_std]=import_data_location('501')
-
 
 X_501_train_time=X_501_train.copy(deep=True) # copy fine because now includes everything#pd.DataFrame({'sin_time':X_501_train['sin_time'],'cos_time':X_501_train['cos_time'],'mon':X_501_train['mon'], 'tue':X_501_train['tue'], 'wed':X_501_train['wed'], 'thu':X_501_train['thu'], 'fri':X_501_train['fri'], 'sat':X_501_train['sat'], 'sun':X_501_train['sun']})#,'season':X_501_train['season']})
 X_501_test_time=X_501_test.copy(deep=True)
@@ -139,13 +122,12 @@ all_day_df=pd.DataFrame(data={'all_days':all_days_array})
 season_nodig=all_day_df.loc[original_index_501['original_index'],:].reset_index(drop=True)
 
 
-# 1. split the set again in test and train
-
+# 2. split the set again in test and train
 X_total=pd.concat([X_501_train_time,X_501_test_time])
 X_total['season2']=season_nodig
 y_total=pd.concat([y_501_train_stand,y_501_test_stand])
 
-# Step 4 add school holiday as a feature
+# Step 3 add school holiday as a feature
 X_total['vacation']=0
 
 #2017
@@ -174,7 +156,6 @@ X_test_option2=X_total.loc[X_total.index[loc_501['start_datum']>'2018-12-31'],:]
 y_501_train=y_total.loc[y_total.index[loc_501['start_datum']<'2019-01-01'],:].to_numpy().reshape((X_train_option2.shape[0],))
 y_501_test=y_total.loc[y_total.index[loc_501['start_datum']>'2018-12-31'],:].to_numpy().reshape((X_test_option2.shape[0],))
 
-
 # For first optimization, purely on sintime costime age and flow
 X_train_501=pd.DataFrame({'sin_time':X_train_option2['sin_time'],'cos_time':X_train_option2['cos_time'],'mon':X_train_option2['mon'], 'tue':X_train_option2['tue'], 'wed':X_train_option2['wed'], 'thu':X_train_option2['thu'], 'fri':X_train_option2['fri'], 'sat':X_train_option2['sat'], 'sun':X_train_option2['sun'],'season1':X_train_option2['season'],'season2':X_train_option2['season2'],'feestdag':X_train_option2['feestdag'],'vacation':X_train_option2['vacation'],'Temperature':X_train_option2['Temperature'],'Rel_humidity':X_train_option2['Rel_humidity'],'Radiation':X_train_option2['Radiation']})
 X_test_501=pd.DataFrame({'sin_time':X_test_option2['sin_time'],'cos_time':X_test_option2['cos_time'],'mon':X_test_option2['mon'], 'tue':X_test_option2['tue'], 'wed':X_test_option2['wed'], 'thu':X_test_option2['thu'], 'fri':X_test_option2['fri'], 'sat':X_test_option2['sat'], 'sun':X_test_option2['sun'],'season1':X_test_option2['season'],'season2':X_test_option2['season2'],'feestdag':X_test_option2['feestdag'],'vacation':X_test_option2['vacation'],'Temperature':X_test_option2['Temperature'],'Rel_humidity':X_test_option2['Rel_humidity'],'Radiation':X_test_option2['Radiation']})
@@ -195,7 +176,6 @@ y_501_val_shuffled=y_501_train_shuffled_total[13612:]
 
 
 #%% Bayesian hyperparameter optimization
-
 
 # 1. Make hyperparameter space
 
@@ -293,7 +273,7 @@ n_neurons=55
 input_=keras.layers.Input(shape=X_train_501_shuffled.shape[1:])
 hidden1=keras.layers.Dense(n_neurons,activation='relu')(input_)
 hidden2=keras.layers.Dense(n_neurons,activation='relu')(hidden1)
-#hidden3=keras.layers.Dense(n_neurons,activation='relu')(hidden2)
+#hidden3=keras.layers.Dense(n_neurons,activation='relu')(hidden2) #If desired to have more layers
 #hidden4=keras.layers.Dense(n_neurons,activation='relu')(hidden3)
 #hidden5=keras.layers.Dense(n_neurons,activation='relu')(hidden4)
 
