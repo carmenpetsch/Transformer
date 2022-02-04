@@ -4,4 +4,4 @@ This repository contains the files required to obtain the prediction models as d
 C.A.M. Petsch, (2022). "Long-term trafic flow predictions", TU Delft
 
 The transformer, random forest, and multi-layer perceptron are each designed in a separate file.
-In addition, if desired to obtain the figures as provided in the thesis Results_figures.py can be consulted
+In addition, if desired to obtain the figures as provided in the thesis, Results_figures.py can be consulted
