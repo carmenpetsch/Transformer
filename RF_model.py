@@ -1,16 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Feb  3 13:33:38 2022
-
-@author: z0049unj
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan 10 14:00:20 2022
-
-@author: z0049unj
-"""
+# This file makes the Random forest
 
 # %% Import packages
 import pandas as pd

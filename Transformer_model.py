@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 18 11:36:12 2022
-
-@author: z0049unj
-"""
+# This files makes the transformer
 
 #%% Import packages
 import pandas as pd
